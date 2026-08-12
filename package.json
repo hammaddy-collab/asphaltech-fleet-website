@@ -1,0 +1,12 @@
+{
+  "name": "asphaltech-fleet-register-website",
+  "version": "1.0.0",
+  "description": "Static hosting for the Asphaltech Fleet Register app (single self-contained index.html), served via a zero-dependency Node HTTP server.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
