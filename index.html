@@ -179,6 +179,19 @@ function applySettingsToRuntime(){
   if (s.appLink && s.appLink.trim()) APP_LINK = s.appLink.trim();
 }
 
+// Fleet numbers confirmed sold before this app existed (Hammad, Sep 2026) —
+// they were never run through the in-app Disposal workflow, so without this
+// they'd sit in the register forever marked "Current".
+const PRE_APP_SOLD_FLEET_NOS = ['LV35','HV11','LV12','LV15','LV20','EX02','LV23','LV27','PW06','LV36','LV39'];
+function applyPreexistingSoldFix(){
+  let changed = false;
+  PRE_APP_SOLD_FLEET_NOS.forEach(fleetNo=>{
+    const a = state.assets.find(x=>x.fleetNo === fleetNo);
+    if (a && a.status !== 'Sold'){ a.status = 'Sold'; changed = true; }
+  });
+  return changed;
+}
+
 async function loadData(){
   const cloud = await cloudGet();
   if (cloud && Array.isArray(cloud.assets) && cloud.assets.length){
@@ -200,6 +213,14 @@ async function loadData(){
     // If the API answered but was just empty, seed it so every teammate starts from the same data.
     if (cloud !== null) await cloudSet({assets: state.assets, disposed: state.disposed, settings: state.settings});
   }
+  // One-time correction: these vehicles were sold before this app was ever
+  // set up, so they were never routed through the Disposal workflow and got
+  // entered as "Current". Flip them to "Sold" so they drop out of Summary
+  // (which only shows Current) but stay visible, correctly tagged, in the
+  // Full Register. Safe to run on every load — once a fleet no is already
+  // "Sold" this is a no-op, so it only pushes a cloud update the first time
+  // any teammate opens the app after this fix ships.
+  if (applyPreexistingSoldFix()) await saveAssets();
   applySettingsToRuntime(); // pins/routing saved by Admin now actually take effect for everyone
   backupLocally();
   state.loaded = true;
@@ -668,13 +689,32 @@ function renderSummary(container){
       <div class="desc">Visible to everyone in the company. Financial, warranty, and serial number details are excluded.</div>
       ${renderFilterBar('summary', current)}
       <div class="tablewrap"><table id="summary-table"></table></div>
+      <div style="margin-top:14px;"><button class="secondary" id="export-summary-btn">&#8681; Export to Excel</button></div>
     </div>`;
   wireFilter('summary', current, cols, labels);
+  document.getElementById('export-summary-btn').onclick = ()=> exportRowsToExcel(current, cols, labels, 'fleet_summary');
 }
 
 // Shared search + division/category filter bar used by Summary and Register.
 function uniqueValues(rows, key){
   return [...new Set(rows.map(r=>r[key]).filter(v=>v !== undefined && v !== null && v !== ''))].sort();
+}
+
+// Read-only Excel export shared by Summary and the Full Register — each
+// exports exactly the columns that view is allowed to show. Bulk import
+// stays Admin-only; these buttons never offer a re-upload.
+function exportRowsToExcel(rows, cols, labels, filenamePrefix){
+  if (typeof XLSX === 'undefined'){ showToast('Excel library did not load — check your internet connection and try again.'); return; }
+  const headers = cols.map((c,i)=> labels[i] || c);
+  const data = rows.map(r=>{
+    const o = {};
+    cols.forEach((c,i)=>{ o[headers[i]] = (r[c] !== undefined && r[c] !== null) ? r[c] : ''; });
+    return o;
+  });
+  const ws = XLSX.utils.json_to_sheet(data, {header: headers});
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Assets');
+  XLSX.writeFile(wb, `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function renderFilterBar(scope, rows){
@@ -781,8 +821,10 @@ function renderRegister(container){
       <div class="desc">Full data — visible to Fleet Maintenance, Accounts, HR and CEO only. Click Edit to correct or update any field on an asset. Click a column header to sort.</div>
       ${renderFilterBar('register', state.assets)}
       <div class="tablewrap"><table id="register-table"></table></div>
+      <div style="margin-top:14px;"><button class="secondary" id="export-register-btn">&#8681; Export to Excel</button></div>
     </div>`;
   wireFilter('register', state.assets, cols, labels, renderRegisterRow);
+  document.getElementById('export-register-btn').onclick = ()=> exportRowsToExcel(state.assets, cols, labels.slice(0, cols.length), 'fleet_register');
 }
 function renderRegisterRow(a, cols){
   return `<tr>${cols.map(c=>{
