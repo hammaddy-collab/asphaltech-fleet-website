@@ -689,7 +689,19 @@ function renderFilterBar(scope, rows){
 }
 
 // Per-scope sort state so clicking a column header toggles ascending/descending.
-const tableSort = {};
+// Persisted to localStorage so the chosen sort survives closing/reopening the
+// app (previously this was a plain in-memory object that reset to {} on every
+// page load, which silently discarded any sort the user picked).
+function loadTableSort(){
+  try {
+    const raw = window.localStorage.getItem('fleetapp_tableSort');
+    return raw ? JSON.parse(raw) : {};
+  } catch(e){ return {}; }
+}
+function saveTableSort(){
+  try { window.localStorage.setItem('fleetapp_tableSort', JSON.stringify(tableSort)); } catch(e){ /* ignore */ }
+}
+const tableSort = loadTableSort();
 
 function wireFilter(scope, rows, cols, labels, rowRenderer){
   const input = document.getElementById(`filter-${scope}`);
@@ -744,6 +756,7 @@ function wireFilter(scope, rows, cols, labels, rowRenderer){
         const cur = tableSort[scope] || { col: null, dir: 1 };
         if (cur.col === col) cur.dir = -cur.dir; else { cur.col = col; cur.dir = 1; }
         tableSort[scope] = cur;
+        saveTableSort();
         apply();
       };
     });
