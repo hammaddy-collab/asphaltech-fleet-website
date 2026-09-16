@@ -184,11 +184,53 @@ function applySettingsToRuntime(){
 // run through the in-app Disposal workflow, so without this they'd sit in
 // the register forever marked "Current".
 const PRE_APP_SOLD_FLEET_NOS = ['HV11','LV12','LV15','LV19','LV20','EX02','LV14','LV21','LV09','LV24','LV18','LS05','LS06','LV23','LV27','LV40','PW06','LV36','LV35','LV31','LV39'];
+// Disposal date / reason from the same register, where legible — left blank
+// where the source row wasn't reliably readable, rather than guessing.
+const PRE_APP_SOLD_INFO = {
+  HV11: {disposalDate:'2025-06-18', disposalReason:'Sold'},
+  LV12: {disposalDate:'2025-05-22', disposalReason:'Sold'},
+  LV15: {disposalDate:'', disposalReason:'Sold'},
+  LV19: {disposalDate:'2025-07-31', disposalReason:'Trade in with LV47'},
+  LV20: {disposalDate:'2025-07-31', disposalReason:'Trade in with LV47'},
+  EX02: {disposalDate:'2025-07-29', disposalReason:'Sold through Smith Broughton Auctioneers'},
+  LV14: {disposalDate:'2025-08-18', disposalReason:'Trade in with LV48'},
+  LV21: {disposalDate:'2025-08-18', disposalReason:'Trade in with LV50'},
+  LV09: {disposalDate:'2025-08-25', disposalReason:'Trade in'},
+  LV24: {disposalDate:'2025-08-25', disposalReason:'Trade in'},
+  LV18: {disposalDate:'2025-08-27', disposalReason:'Trade in'},
+  LS05: {disposalDate:'', disposalReason:'Trade in with LS10'},
+  LS06: {disposalDate:'', disposalReason:'Trade in with LS11'},
+  LV23: {disposalDate:'', disposalReason:'Sold'},
+  LV27: {disposalDate:'', disposalReason:'Sold'},
+  LV40: {disposalDate:'', disposalReason:'Written off'},
+  PW06: {disposalDate:'', disposalReason:'Sold to Asphaltech Vic'},
+  LV36: {disposalDate:'', disposalReason:'Sold'},
+  LV35: {disposalDate:'', disposalReason:'Sold'},
+  LV31: {disposalDate:'', disposalReason:'Kangaroo hit — disposal in process'},
+  LV39: {disposalDate:'', disposalReason:'Sold'},
+};
+// Marks these as Sold (so Summary drops them) AND adds them to the Disposed
+// Fleet (Historical) list — but, unlike a normal in-app disposal, does NOT
+// remove them from state.assets, so they still show (tagged Sold) in the
+// Full Register. Safe to run on every load: only pushes a cloud save when
+// it actually adds or changes something, so it's a no-op after the first run.
 function applyPreexistingSoldFix(){
   let changed = false;
   PRE_APP_SOLD_FLEET_NOS.forEach(fleetNo=>{
     const a = state.assets.find(x=>x.fleetNo === fleetNo);
-    if (a && a.status !== 'Sold'){ a.status = 'Sold'; changed = true; }
+    if (!a) return;
+    if (a.status !== 'Sold'){ a.status = 'Sold'; changed = true; }
+    if (!state.disposed.some(d=>d.fleetNo === fleetNo)){
+      const info = PRE_APP_SOLD_INFO[fleetNo] || {};
+      state.disposed.unshift({
+        fleetNo: a.fleetNo,
+        make: a.make,
+        model: a.model,
+        disposalDate: info.disposalDate || '',
+        disposalReason: info.disposalReason || 'Sold'
+      });
+      changed = true;
+    }
   });
   return changed;
 }
