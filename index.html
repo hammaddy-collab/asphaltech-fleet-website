@@ -179,10 +179,11 @@ function applySettingsToRuntime(){
   if (s.appLink && s.appLink.trim()) APP_LINK = s.appLink.trim();
 }
 
-// Fleet numbers confirmed sold before this app existed (Hammad, Sep 2026) —
-// they were never run through the in-app Disposal workflow, so without this
-// they'd sit in the register forever marked "Current".
-const PRE_APP_SOLD_FLEET_NOS = ['LV35','HV11','LV12','LV15','LV20','EX02','LV23','LV27','PW06','LV36','LV39'];
+// Fleet numbers confirmed sold/disposed before this app existed (Hammad,
+// Sep 2026 — per his "DISPOSED VEHICLES.xlsx" register) — they were never
+// run through the in-app Disposal workflow, so without this they'd sit in
+// the register forever marked "Current".
+const PRE_APP_SOLD_FLEET_NOS = ['HV11','LV12','LV15','LV19','LV20','EX02','LV14','LV21','LV09','LV24','LV18','LS05','LS06','LV23','LV27','LV40','PW06','LV36','LV35','LV31','LV39'];
 function applyPreexistingSoldFix(){
   let changed = false;
   PRE_APP_SOLD_FLEET_NOS.forEach(fleetNo=>{
@@ -717,13 +718,15 @@ function exportRowsToExcel(rows, cols, labels, filenamePrefix){
   XLSX.writeFile(wb, `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
-function renderFilterBar(scope, rows){
+function renderFilterBar(scope, rows, opts){
+  opts = opts || {};
   const divisions = uniqueValues(rows, 'division');
   const categories = uniqueValues(rows, 'category');
   return `<div class="filterbar">
     <input type="text" id="filter-${scope}" placeholder="Search fleet no, make, model, division, driver...">
     ${divisions.length ? `<select id="filter-${scope}-division"><option value="">All divisions</option>${divisions.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>` : ''}
     ${categories.length ? `<select id="filter-${scope}-category"><option value="">All categories</option>${categories.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>` : ''}
+    ${opts.statusFilter ? `<select id="filter-${scope}-status"><option value="">All statuses (Current + Sold)</option><option value="Current">Current</option><option value="Sold">Sold</option></select>` : ''}
     <span class="filter-count" id="filter-${scope}-count"></span>
   </div>`;
 }
@@ -747,6 +750,7 @@ function wireFilter(scope, rows, cols, labels, rowRenderer){
   const input = document.getElementById(`filter-${scope}`);
   const divSel = document.getElementById(`filter-${scope}-division`);
   const catSel = document.getElementById(`filter-${scope}-category`);
+  const statusSel = document.getElementById(`filter-${scope}-status`);
   const countEl = document.getElementById(`filter-${scope}-count`);
   const table = document.getElementById(`${scope}-table`);
   if (!table) return;
@@ -755,9 +759,11 @@ function wireFilter(scope, rows, cols, labels, rowRenderer){
     const q = (input && input.value || '').trim().toLowerCase();
     const divVal = divSel ? divSel.value : '';
     const catVal = catSel ? catSel.value : '';
+    const statusVal = statusSel ? statusSel.value : '';
     let filtered = rows.filter(a=>{
       if (divVal && a.division !== divVal) return false;
       if (catVal && a.category !== catVal) return false;
+      if (statusVal && a.status !== statusVal) return false;
       if (q && !cols.some(c=>String(a[c]||'').toLowerCase().includes(q))) return false;
       return true;
     });
@@ -807,6 +813,7 @@ function wireFilter(scope, rows, cols, labels, rowRenderer){
   if (input) input.oninput = apply;
   if (divSel) divSel.onchange = apply;
   if (catSel) catSel.onchange = apply;
+  if (statusSel) statusSel.onchange = apply;
   apply();
 }
 
@@ -819,7 +826,7 @@ function renderRegister(container){
     <div class="card">
       <h2>Master Fleet Register</h2>
       <div class="desc">Full data — visible to Fleet Maintenance, Accounts, HR and CEO only. Click Edit to correct or update any field on an asset. Click a column header to sort.</div>
-      ${renderFilterBar('register', state.assets)}
+      ${renderFilterBar('register', state.assets, {statusFilter: true})}
       <div class="tablewrap"><table id="register-table"></table></div>
       <div style="margin-top:14px;"><button class="secondary" id="export-register-btn">&#8681; Export to Excel</button></div>
     </div>`;
