@@ -726,7 +726,7 @@ function renderFilterBar(scope, rows, opts){
     <input type="text" id="filter-${scope}" placeholder="Search fleet no, make, model, division, driver...">
     ${divisions.length ? `<select id="filter-${scope}-division"><option value="">All divisions</option>${divisions.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>` : ''}
     ${categories.length ? `<select id="filter-${scope}-category"><option value="">All categories</option>${categories.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>` : ''}
-    ${opts.statusFilter ? `<select id="filter-${scope}-status"><option value="">All statuses (Current + Sold)</option><option value="Current">Current</option><option value="Sold">Sold</option></select>` : ''}
+    ${opts.statusFilter ? `<select id="filter-${scope}-status"><option value="Current" selected>Current</option><option value="Sold">Sold</option><option value="">All statuses (Current + Sold)</option></select>` : ''}
     <span class="filter-count" id="filter-${scope}-count"></span>
   </div>`;
 }
